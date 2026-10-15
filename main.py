@@ -4,12 +4,15 @@ from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QMainWindow,
     QVBoxLayout, QLabel, QFrame,
-    QPushButton, QScrollArea, QStackedWidget
+    QPushButton, QScrollArea, QStackedWidget,
+    QDialog
 )
 
 from project_card import ProjectCard
 from project_page import ProjectPage
 from project_manager import ProjectManager
+from create_project_dialog import CreateProjectDialog
+from config_dialog import ConfigDialog
 
 
 class PcBuilder(QMainWindow):
@@ -92,17 +95,18 @@ class PcBuilder(QMainWindow):
         # Создаем контейнер для списка карточек:
         scroll_content = QWidget()
         scroll_content.setObjectName("ScrollContent")
-        cards_layout = QVBoxLayout(scroll_content)
-        cards_layout.setSpacing(15)
-        cards_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.cards_layout = QVBoxLayout(scroll_content)
+        self.cards_layout.setSpacing(15)
+        self.cards_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # ЧИТАЕМ CSV и записываем их, чтобы потом не читать файл:
         all_projects = self.project_manager.get_all_projects()
 
         for pid, pd in all_projects.items():
             config = (
-                f"{pd["cpu"]} | {pd["mat"]} | {pd["gpu"]} |"
-                f"{pd["pb"]}"
+                f"{pd["config"]["cpu"]} | {pd["config"]["mat"]} | "
+                f"{pd["config"]["gpu"]} | "
+                f"{pd["config"]["pb"]}"
             )
 
             # Создаем карточку проекта с краткой инфой:
@@ -116,7 +120,7 @@ class PcBuilder(QMainWindow):
             # Подключаемся к сигналу открытия страницы конкретного проекта:
             card.open_project.connect(self.open_project_page)
 
-            cards_layout.addWidget(card)
+            self.cards_layout.addWidget(card)
 
         scroll_area.setWidget(scroll_content)
         layout.addWidget(scroll_area)
@@ -130,6 +134,10 @@ class PcBuilder(QMainWindow):
         alter_button = QPushButton("+ Создать проект")
         alter_button.setObjectName("AlterButton")
         alter_button.setFixedWidth(180)
+        alter_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        alter_button.clicked.connect(self.create_new_project)
+
         layout.addWidget(alter_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return page
@@ -152,6 +160,75 @@ class PcBuilder(QMainWindow):
         """Возврат к списку проектов (обработчик go_back)"""
         # Переключаемся обратно на страницу с индексом 0:
         self.stack.setCurrentIndex(0)
+        self.refresh_projects_list()
+
+    def create_new_project(self):
+        """Открывает диалог создания проекта, затем диалог конфигурации"""
+
+        # Шаг 1: Название и описание
+        create_dialog = CreateProjectDialog(self)
+        if create_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        basic_data = create_dialog.get_data()
+
+        # Шаг 2: Конфигурация (НОВЫЙ ДИАЛОГ)
+        config_dialog = ConfigDialog(basic_data["name"], self)
+        config_dialog.exec()
+
+        config_data = config_dialog.get_config_data()
+
+        # Шаг 3: Собираем всё вместе
+        new_id = self.project_manager.get_next_id()
+        full_project_data = {
+            "name": basic_data["name"],
+            "description": basic_data["description"],
+            "price": "0",
+            "config": {
+                "cpu": config_data["cpu"],
+                "mat": config_data["mat"],
+                "pb": config_data["pb"],
+                "gpu": config_data["gpu"],
+                "ram": config_data["ram"],
+                "ssd": config_data["ssd"],
+                "case": config_data["case"],
+                "cooling": config_data["cooling"],
+            }
+        }
+
+        # Шаг 4: Сохраняем и обновляем интерфейс
+        self.project_manager.create_project(new_id, full_project_data)
+        self.refresh_projects_list()
+        self.open_project_page(new_id)
+
+    def refresh_projects_list(self):
+        """Очищает и заново строит список карточек проектов"""
+
+        # 1. Удаляем все старые карточки из layout
+        while self.cards_layout.count():
+            item = self.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # 2. Загружаем актуальные данные из менеджера
+        all_projects = self.project_manager.get_all_projects()
+
+        # 3. Создаём карточки заново
+        for pid, pd in all_projects.items():
+            config = (
+                f"{pd["config"]["cpu"]} | {pd["config"]["mat"]} | "
+                f"{pd["config"]["gpu"]} | {pd["config"]["pb"]}"
+            )
+
+            card = ProjectCard(
+                project_id=pid,
+                project_name=pd["name"],
+                desc=pd["description"],
+                price=pd["price"],
+                config=config,
+            )
+            card.open_project.connect(self.open_project_page)
+            self.cards_layout.addWidget(card)
 
 
 if __name__ == "__main__":
@@ -372,6 +449,17 @@ if __name__ == "__main__":
             background-color: rgba(0, 120, 215, 0.3);
         }
 
+        QPushButton#DeleteButton {
+            background-color: transparent;
+            border: none;
+            border-radius: 15px;
+            padding: 4px;
+        }
+
+        QPushButton#DeleteButton:hover {
+            background-color: rgba(252, 28, 3, 0.2);
+        }
+
         /* Стили для диалога редактирования */
         QDialog#EditDialog {
             background-color: #18191a;
@@ -411,6 +499,47 @@ if __name__ == "__main__":
 
         QPushButton#EditDialogButton:pressed {
             background-color: #004578;
+        }
+
+                /* ===== Стили для диалога конфигурации ===== */
+        QDialog#ConfigDialog {
+            background-color: #18191a;
+        }
+
+        QLabel#ConfigDialogTitle {
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        QLabel#ConfigDialogHint {
+            color: #888;
+            font-size: 12px;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+
+        QLabel#ConfigDialogLabel {
+            color: #e0e0e0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        QLineEdit#ConfigDialogInput {
+            background-color: #242526;
+            color: white;
+            border: 1px solid #3a3b3c;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        QLineEdit#ConfigDialogInput:focus {
+            border: 1px solid #0078d7;
+        }
+
+        #ConfigDialogScroll, #ConfigDialogFields {
+            background-color: transparent;
         }
     """
 

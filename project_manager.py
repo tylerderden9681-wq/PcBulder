@@ -43,6 +43,12 @@ class ProjectManager:
             for pid, pdata in self.projects.items()
         }
 
+    def create_project(self, project_id, data):
+        """Создать проект"""
+        project_id = str(project_id)
+        self.projects[project_id] = data
+        self.save()
+
     def update_project(self, project_id, data):
         """
         Обновляет проект
@@ -66,7 +72,7 @@ class ProjectManager:
             return True
         return False
 
-    def get_next_id(self, project_id):
+    def get_next_id(self):
         """Получить следующий доступный ID"""
         if not self.projects:
             return "1"

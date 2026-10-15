@@ -61,8 +61,18 @@ class ProjectPage(QWidget):
         title_edit_btn.clicked.connect(self.edit_the_project_title)
         title_edit_btn.setObjectName("EditButton")
 
+        # == Кнопка для изменения описания ==
+        delete_project_btn = QPushButton()
+        delete_project_btn.setIcon(qta.icon("fa6s.trash", color="red"))
+        delete_project_btn.setIconSize(QSize(16, 16))
+        delete_project_btn.setFixedSize(30, 30)
+        delete_project_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_project_btn.clicked.connect(self.delete_the_project_title)
+        delete_project_btn.setObjectName("DeleteButton")
+
         title_and_editbtn.addWidget(self.title_label)
         title_and_editbtn.addWidget(title_edit_btn)
+        title_and_editbtn.addWidget(delete_project_btn)
 
         btn_and_title_layout.addLayout(title_and_editbtn)
 
@@ -200,14 +210,14 @@ class ProjectPage(QWidget):
         self.title_label.setText(f"Проект: {project_data["name"]}")
         self.desc_label.setText(project_data["description"])
         self.config_label.setText(
-            f"<b>Процессор:</b> {project_data["cpu"]}<br>"
-            f"<b>Материнская плата:</b> {project_data["mat"]}<br>"
-            f"<b>Блок питания:</b> {project_data["pb"]}<br>"
-            f"<b>Видеокарта:</b> {project_data["gpu"]}<br>"
-            f"<b>Оперативная память:</b> {project_data["ram"]}<br>"
-            f"<b>Накопитель (SSD):</b> {project_data["ssd"]}<br>"
-            f"<b>Корпус:</b> {project_data["case"]}<br>"
-            f"<b>Охлаждение:</b> {project_data["cooling"]}<br>"
+            f"<b>Процессор:</b> {project_data["config"]["cpu"]}<br>"
+            f"<b>Материнская плата:</b> {project_data["config"]["mat"]}<br>"
+            f"<b>Блок питания:</b> {project_data["config"]["pb"]}<br>"
+            f"<b>Видеокарта:</b> {project_data["config"]["gpu"]}<br>"
+            f"<b>Оперативная память:</b> {project_data["config"]["ram"]}<br>"
+            f"<b>Накопитель (SSD):</b> {project_data["config"]["ssd"]}<br>"
+            f"<b>Корпус:</b> {project_data["config"]["case"]}<br>"
+            f"<b>Охлаждение:</b> {project_data["config"]["cooling"]}<br>"
         )
         self.price_label.setText(project_data["price"])
 
@@ -240,15 +250,15 @@ class ProjectPage(QWidget):
                 self.current_project["id"],
                 self.current_project["name"],
                 self.current_project["description"],
-                self.current_project["price"],
-                self.current_project["cpu"],
-                self.current_project["mat"],
-                self.current_project["pb"],
-                self.current_project["gpu"],
-                self.current_project["ram"],
-                self.current_project["ssd"],
-                self.current_project["case"],
-                self.current_project["cooling"],
+                self.current_project["config"]["price"],
+                self.current_project["config"]["cpu"],
+                self.current_project["config"]["mat"],
+                self.current_project["config"]["pb"],
+                self.current_project["config"]["gpu"],
+                self.current_project["config"]["ram"],
+                self.current_project["config"]["ssd"],
+                self.current_project["config"]["case"],
+                self.current_project["config"]["cooling"],
             ]
 
             with open(file_path, "w", encoding="utf8", newline="") as file:
@@ -287,14 +297,14 @@ class ProjectPage(QWidget):
                 f"=== Проект: {p["name"]} ===\n\n"
                 f"Описание:\n{p["description"]}\n\n"
                 f"Конфигурация:\n"
-                f"  - Процессор: {p["cpu"]}\n"
-                f"  - Видеокарта: {p["gpu"]}\n"
-                f"  - Материнская плата: {p["mat"]}\n"
-                f"  - Блок питания: {p["pb"]}\n"
-                f"  - Оперативная память: {p["ram"]}\n"
-                f"  - SSD: {p["ssd"]}\n"
-                f"  - Корпус: {p["case"]}\n"
-                f"  - Охлаждение: {p["cooling"]}\n"
+                f"  - Процессор: {p["config"]["cpu"]}\n"
+                f"  - Видеокарта: {p["config"]["gpu"]}\n"
+                f"  - Материнская плата: {p["config"]["mat"]}\n"
+                f"  - Блок питания: {p["config"]["pb"]}\n"
+                f"  - Оперативная память: {p["config"]["ram"]}\n"
+                f"  - SSD: {p["config"]["ssd"]}\n"
+                f"  - Корпус: {p["config"]["case"]}\n"
+                f"  - Охлаждение: {p["config"]["cooling"]}\n"
             )
 
             with open(file_path, "w", encoding="utf8") as file:
@@ -312,10 +322,12 @@ class ProjectPage(QWidget):
         if not self.current_project:
             return
 
+        old_name = self.current_project["name"]
+
         dialog = EditDialog(
             title="Редактировать название",
             label_text="Введите новое название проекта:",
-            initial_text=self.current_project["name"],
+            initial_text=old_name,
             parent=self
         )
 
@@ -335,17 +347,22 @@ class ProjectPage(QWidget):
                 self.current_project["name"] = new_name
                 self.title_label.setText(new_name)
 
-                # Отправляем сообщение об успехе операции:
-                QMessageBox.information(self, "Успех", "Название обновлено!")
+                if old_name != new_name:
+                    # Отправляем сообщение об успехе операции:
+                    QMessageBox.information(
+                        self, "Успех", "Название обновлено!"
+                    )
 
     def edit_the_project_desc(self):
         if not self.current_project:
             return
 
+        old_desc = self.current_project["description"]
+
         dialog = EditDialog(
             title="Редактировать описание",
             label_text="Введите новое описание проекта:",
-            initial_text=self.current_project["description"],
+            initial_text=old_desc,
             parent=self
         )
 
@@ -365,7 +382,25 @@ class ProjectPage(QWidget):
                 self.current_project["description"] = new_desc
                 self.desc_label.setText(new_desc)
 
-                QMessageBox.information(self, "Успех", "Описание обновлено!")
+                if new_desc != old_desc:
+                    QMessageBox.information(
+                        self, "Успех", "Описание обновлено!"
+                    )
 
     def edit_the_project_config(self):
         pass
+
+    def delete_the_project_title(self):
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение", f"Удалить проект {self.current_project["name"]}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            project_id = self.current_project["id"]
+            self.project_manager.delete_project(project_id)
+
+            # Обязательно возвращаемся к списку проектов
+            self.go_back.emit()
